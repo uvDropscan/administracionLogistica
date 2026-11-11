@@ -1,0 +1,867 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+</head>
+<body>
+<title>Desafío de Despacho</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anton&family=Barlow:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+:root{
+  /* Concepto: tablero de control de despacho. Señalética vial amarilla, titulares condensados de TV y cifras en monoespaciada sobre asfalto azulado. */
+  --bg:#E6EAEE; --surface:#F6F8FA; --surface-2:#DCE2E8; --ink:#101A24; --muted:#4F5E6B; --line:#B7C2CD;
+  --accent:#F2B705; --accent-ink:#101A24;
+  --a:#1D5FBF; --a-ink:#FFFFFF; --b:#C2410C; --b-ink:#FFFFFF;
+  --good:#17794A; --good-ink:#FFFFFF; --bad:#B42318;
+  --board:#101A24; --board-ink:#EEF2F6; --board-accent:#F7C320; --board-good:#4FD08F; --board-bad:#FF7B72; --board-mute:#9AA9B6;
+  --font-display:"Anton","Impact","Arial Narrow",sans-serif;
+  --font-body:"Barlow",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --font-mono:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0D141B; --surface:#151F29; --surface-2:#1E2B37; --ink:#E8EEF3; --muted:#9AA9B6; --line:#2B3A48;
+    --accent:#F7C320; --accent-ink:#101A24;
+    --a:#6FA8FF; --a-ink:#0D141B; --b:#FF9466; --b-ink:#0D141B;
+    --good:#4FD08F; --good-ink:#08210F; --bad:#FF7B72;
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0D141B; --surface:#151F29; --surface-2:#1E2B37; --ink:#E8EEF3; --muted:#9AA9B6; --line:#2B3A48;
+  --accent:#F7C320; --accent-ink:#101A24;
+  --a:#6FA8FF; --a-ink:#0D141B; --b:#FF9466; --b-ink:#0D141B;
+  --good:#4FD08F; --good-ink:#08210F; --bad:#FF7B72;
+  color-scheme:dark;
+}
+
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+body{
+  margin:0; background:var(--bg); color:var(--ink);
+  font-family:var(--font-body); font-size:17px; line-height:1.5;
+  padding-block:0 4rem;
+  padding-left:max(16px,env(safe-area-inset-left,0px));
+  padding-right:max(16px,env(safe-area-inset-right,0px));
+}
+.wrap{max-width:62rem;margin-inline:auto}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+:focus-visible{outline:3px solid var(--ink);outline-offset:3px}
+p{margin:0}
+
+/* Cabecera */
+.hero{padding-block:2.5rem 1rem}
+.eyebrow{font:500 .8rem/1.2 var(--font-mono);letter-spacing:.14em;text-transform:uppercase;color:var(--muted);margin-bottom:.9rem}
+h1{font:400 clamp(2.8rem,10vw,5.6rem)/1 var(--font-display);text-transform:uppercase;letter-spacing:.005em;margin:0;text-wrap:balance}
+h1 span{background:var(--accent);color:var(--accent-ink);padding:0 .15em;-webkit-box-decoration-break:clone;box-decoration-break:clone}
+.lede{max-width:40rem;font-size:1.15rem;color:var(--muted);margin-top:1.25rem}
+
+.tracker{list-style:none;margin:2rem 0 0;padding:0;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));border:2px solid var(--ink);background:var(--surface)}
+.tracker li{padding:.8rem 1rem;display:flex;gap:.8rem;align-items:center;border-right:2px solid var(--ink);min-width:0}
+.tracker li:last-child{border-right:0}
+.tracker .n{font:400 2rem/1 var(--font-display)}
+.tracker .t{display:block;font-weight:700;line-height:1.2}
+.tracker .s{display:block;font:500 .7rem/1.4 var(--font-mono);letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.tracker li[data-state="curso"]{background:var(--accent);color:var(--accent-ink)}
+.tracker li[data-state="curso"] .s{color:var(--accent-ink)}
+.tracker li[data-state="lista"] .s{color:var(--good)}
+@media (max-width:600px){
+  .tracker{grid-template-columns:1fr}
+  .tracker li{border-right:0;border-bottom:2px solid var(--ink)}
+  .tracker li:last-child{border-bottom:0}
+}
+
+/* Etapas */
+.stage{padding-block:2.5rem 1rem;border-top:2px solid var(--ink);margin-top:2rem}
+.stage-head{display:flex;flex-wrap:wrap;gap:1rem 2rem;align-items:flex-end;justify-content:space-between;margin-bottom:1.5rem}
+.tag{display:inline-block;background:var(--accent);color:var(--accent-ink);font:400 1rem/1 var(--font-display);letter-spacing:.08em;text-transform:uppercase;padding:.4rem .65rem}
+h2{font:400 clamp(2.1rem,6vw,3.3rem)/1 var(--font-display);text-transform:uppercase;margin:.7rem 0 0;text-wrap:balance}
+h3{font:400 1.5rem/1.1 var(--font-display);text-transform:uppercase;letter-spacing:.02em;margin:2rem 0 .75rem}
+.say{margin-top:.6rem;color:var(--muted);font-style:italic}
+
+.timer{display:flex;align-items:center;gap:.6rem;flex-wrap:wrap}
+.timer output{font:500 2.3rem/1 var(--font-mono);font-variant-numeric:tabular-nums;min-width:4.4ch}
+.timer[data-end="true"] output{color:var(--bad)}
+
+.btn{font:400 1.05rem/1 var(--font-display);letter-spacing:.07em;text-transform:uppercase;padding:.85rem 1.3rem;border:2px solid var(--ink);background:transparent;color:var(--ink);cursor:pointer;border-radius:2px}
+.btn:hover{background:var(--surface-2)}
+.btn.primary{background:var(--accent);color:var(--accent-ink)}
+.btn.primary:hover{filter:brightness(.94)}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.btn.small{padding:.55rem .85rem;font-size:.9rem}
+.actions{display:flex;flex-wrap:wrap;gap:.75rem;align-items:center;margin-top:1.25rem}
+
+.lbl{font:500 .78rem/1.2 var(--font-mono);letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+
+/* Orden de despacho */
+.manifest{background:var(--surface);border:2px solid var(--ink)}
+.manifest-h{display:flex;justify-content:space-between;gap:.5rem 1rem;flex-wrap:wrap;padding:.65rem 1rem;border-bottom:2px dashed var(--line);font:500 .78rem/1.2 var(--font-mono);letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.manifest-b{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}
+.fig{padding:1.25rem 1rem 1.4rem}
+.fig+.fig{border-left:2px dashed var(--line)}
+.fig .val{font:400 clamp(3.2rem,13vw,5.5rem)/1 var(--font-display);font-variant-numeric:tabular-nums;margin-top:.4rem}
+.fig .unit{font-size:.95rem;color:var(--muted)}
+
+
+.todo{margin:0;padding-left:1.4rem;display:grid;gap:.4rem;max-width:42rem}
+.todo li::marker{font-family:var(--font-mono);font-weight:600}
+
+.answer{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,14rem),1fr));gap:1rem;margin-top:1rem}
+.field label{display:block;font-weight:700;margin-bottom:.4rem}
+.field .in{display:flex;align-items:center;border:2px solid var(--ink);background:var(--surface)}
+.field input{flex:1;min-width:0;border:0;background:transparent;color:var(--ink);font:500 1.5rem/1 var(--font-mono);padding:.85rem;font-variant-numeric:tabular-nums}
+.field input:focus-visible{outline:none}
+.field .in:focus-within{outline:3px solid var(--ink);outline-offset:3px}
+.field .suf{padding-right:.85rem;font:500 1rem var(--font-mono);color:var(--muted)}
+.field[data-ok="true"] .in{border-color:var(--good)}
+.field[data-ok="false"] .in{border-color:var(--bad)}
+.fstat{min-height:1.5em;margin-top:.4rem;font:600 .95rem var(--font-mono)}
+.fstat[data-t="ok"]{color:var(--good)}
+.fstat[data-t="err"]{color:var(--bad)}
+
+.msg{margin-top:1rem;padding:.85rem 1rem;border:2px solid var(--ink);background:var(--surface);font-weight:500}
+.msg[data-t="ok"]{border-color:var(--good)}
+.msg[data-t="err"]{border-color:var(--bad)}
+.counter{font:500 .85rem var(--font-mono);color:var(--muted)}
+
+
+/* Bloqueo de la prueba 2 */
+.lock-note{display:none;margin-bottom:1.25rem;padding:1rem 1.1rem;border:2px dashed var(--ink);gap:.75rem 1rem;align-items:center;justify-content:space-between;flex-wrap:wrap}
+.stage[data-locked="true"] .lock-note{display:flex}
+.stage[data-locked="true"] .stage-body{opacity:.38;filter:grayscale(.7)}
+
+/* Cliente */
+.client{position:relative;background:var(--accent);color:var(--accent-ink);padding:1.7rem 1.25rem 1.1rem;display:grid;gap:.3rem}
+.client::before{content:"";position:absolute;inset:0 0 auto 0;height:.6rem;background:repeating-linear-gradient(135deg,var(--accent-ink) 0 12px,var(--accent) 12px 24px)}
+.client .k{font:500 .78rem/1.2 var(--font-mono);letter-spacing:.12em;text-transform:uppercase}
+.client .q{font:400 clamp(1.6rem,5.5vw,2.4rem)/1.05 var(--font-display);text-transform:uppercase;text-wrap:balance}
+.client .p{font-weight:700}
+
+/* Mapa */
+.mapbox{margin-top:1.5rem;border:2px solid var(--ink);background:var(--surface)}
+.mapbox svg{display:block;width:100%;height:auto}
+.legend{display:flex;flex-wrap:wrap;gap:.5rem 1.4rem;padding:.75rem 1rem;border-top:2px dashed var(--line);font:500 .8rem/1.2 var(--font-mono);color:var(--muted)}
+.legend span{display:inline-flex;align-items:center;gap:.45rem}
+.lg-line{width:1.7rem;height:6px;border-radius:3px}
+.lg-lamp{width:.9rem;height:.9rem;border-radius:50%;background:radial-gradient(circle,#E5484D 0 38%,var(--ink) 42%)}
+.lg-x{color:var(--bad);font-weight:700;font-size:1.1rem}
+.bg{fill:var(--surface)}
+.blk{fill:var(--surface-2)}
+.cerro{fill:var(--surface-2);stroke:var(--line);stroke-width:2;stroke-linejoin:round}
+.road{fill:none;stroke:var(--line);stroke-width:18;stroke-linecap:round;stroke-linejoin:round}
+.route{fill:none;stroke-width:6;stroke-linecap:round;stroke-linejoin:round}
+#ruta-A{stroke:var(--a)}
+#ruta-B{stroke:var(--b)}
+.grp{transition:opacity .25s}
+#mapa[data-sel="A"] .grp-B,#mapa[data-sel="B"] .grp-A{opacity:.28}
+.lamp-o{fill:var(--ink)}
+.lamp-i{fill:#E5484D}
+.pothole{fill:none;stroke:var(--bad);stroke-width:3.5;stroke-linecap:round}
+.bdg-A{fill:var(--a)}
+.bdg-B{fill:var(--b)}
+.bdg-t-A{fill:var(--a-ink)}
+.bdg-t-B{fill:var(--b-ink)}
+.bdg-t{font:400 19px var(--font-display);text-anchor:middle;dominant-baseline:central}
+.endbox{fill:var(--ink)}
+.endtxt{fill:var(--bg);font:400 16px var(--font-display);letter-spacing:.06em;text-anchor:middle;dominant-baseline:central}
+.truck-body{fill:var(--accent);stroke:var(--ink);stroke-width:2;stroke-linejoin:round}
+.truck-wheel{fill:var(--ink)}
+.ping{fill:none;stroke:var(--bad);stroke-width:4;transform-box:fill-box;transform-origin:center;animation:ping .8s ease-out forwards}
+@keyframes ping{from{transform:scale(.3);opacity:1}to{transform:scale(3);opacity:0}}
+
+/* Calles */
+[data-k="A"]{--c:var(--a);--c-ink:var(--a-ink)}
+[data-k="B"]{--c:var(--b);--c-ink:var(--b-ink)}
+.badge{display:inline-grid;place-items:center;flex:none;width:2.2rem;height:2.2rem;border-radius:50%;font:400 1.2rem/1 var(--font-display);background:var(--c);color:var(--c-ink)}
+.choices{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:1rem;margin-top:1.5rem}
+@media (max-width:700px){.choices,.lanes{grid-template-columns:1fr!important}}
+.choice{position:relative}
+.choice input{position:absolute;inset:0;width:100%;height:100%;margin:0;opacity:0;cursor:pointer;z-index:1}
+.card{display:block;height:100%;background:var(--surface);border:2px solid var(--ink);padding:1rem 1.1rem 1.1rem}
+.choice input:checked+.card{box-shadow:0 0 0 5px var(--c);background:var(--surface-2)}
+.choice input:focus-visible+.card{outline:3px solid var(--ink);outline-offset:8px}
+.choice input:disabled{cursor:default}
+.card-h{display:flex;align-items:center;gap:.75rem}
+.card-h .cn{display:block;font:400 1.4rem/1.1 var(--font-display);text-transform:uppercase;letter-spacing:.02em}
+.card-h .sub{display:block;font:500 .75rem/1.2 var(--font-mono);letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.pick{display:none;margin-left:auto;font:500 .72rem/1 var(--font-mono);letter-spacing:.1em;text-transform:uppercase;background:var(--c);color:var(--c-ink);padding:.35rem .5rem}
+.choice input:checked+.card .pick{display:inline-block}
+.rows{display:grid;margin-top:1rem}
+.row{display:flex;justify-content:space-between;align-items:center;gap:.75rem;padding:.6rem 0;border-top:1px dashed var(--line)}
+.row .dt{color:var(--muted)}
+.row .dd{display:flex;align-items:center;gap:.5rem;font:600 1rem var(--font-mono);font-variant-numeric:tabular-nums;text-align:right}
+.pro{font:500 .66rem/1 var(--font-mono);letter-spacing:.08em;text-transform:uppercase;background:var(--good);color:var(--good-ink);padding:.28rem .4rem}
+.hint{margin-top:1rem;color:var(--muted)}
+
+.reasons{display:grid;gap:.5rem;margin-top:.75rem}
+.reason{display:flex;gap:.75rem;align-items:flex-start;padding:.75rem 1rem;border:2px solid var(--line);background:var(--surface);cursor:pointer}
+.reason:has(input:checked){border-color:var(--ink);background:var(--surface-2)}
+.reason input{margin-top:.35rem;accent-color:var(--ink)}
+textarea{width:100%;min-height:5rem;resize:vertical;border:2px solid var(--ink);background:var(--surface);color:var(--ink);font:500 1rem/1.45 var(--font-body);padding:.8rem;border-radius:0}
+.field-gap{margin-top:1.25rem}
+.field-gap label{display:block;font-weight:700;margin-bottom:.4rem}
+.status{font:500 .95rem var(--font-mono);color:var(--muted)}
+
+/* Resultado */
+.result{margin-top:2.5rem;border-top:2px solid var(--ink);padding-top:.5rem}
+.boleta{background:var(--surface);border:2px solid var(--ink)}
+.boleta table{width:100%;border-collapse:collapse}
+.boleta th,.boleta td{padding:.65rem 1rem;text-align:left;border-top:1px dashed var(--line)}
+.boleta tr:first-child th,.boleta tr:first-child td{border-top:0}
+.boleta th{font-weight:500}
+.boleta td{text-align:right;font:600 1rem var(--font-mono);font-variant-numeric:tabular-nums}
+.boleta tr.total th,.boleta tr.total td{border-top:2px solid var(--ink);font-size:1.15rem;font-weight:700}
+.note{margin-top:.6rem;font:400 .88rem/1.5 var(--font-mono);color:var(--muted);overflow-wrap:anywhere}
+.arg{margin-top:1.5rem;background:var(--surface);border:2px solid var(--ink);padding:1rem 1.1rem}
+.quote{margin-top:.4rem;font-size:1.1rem;font-weight:600}
+.quote:empty{display:none}
+.coh{margin-top:.6rem;padding-top:.6rem;border-top:1px dashed var(--line)}
+.coh[data-t="ok"]{color:var(--good)}
+.coh[data-t="warn"]{color:var(--bad)}
+.lanes{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:1rem}
+.lane{background:var(--surface);border:2px solid var(--ink);padding:1rem 1.1rem 1.1rem}
+.lane-h{display:flex;align-items:center;gap:.6rem;flex-wrap:wrap}
+.lane-h strong{font:400 1.2rem/1.1 var(--font-display);text-transform:uppercase;letter-spacing:.02em}
+.mine{font:500 .68rem/1 var(--font-mono);letter-spacing:.08em;text-transform:uppercase;border:2px solid var(--ink);padding:.25rem .4rem}
+.meter{display:grid;grid-template-columns:4.6rem minmax(0,1fr) 4.6rem;gap:.6rem;align-items:center;margin-top:.8rem;font-size:.92rem}
+.track{position:relative;height:14px;background:var(--surface-2)}
+.track i{position:absolute;inset:0 auto 0 0;background:var(--c)}
+.tick{position:absolute;top:-5px;bottom:-5px;width:3px;background:var(--ink)}
+.m-val{font:600 .9rem var(--font-mono);text-align:right;font-variant-numeric:tabular-nums}
+.lane .cumpl{margin-top:.9rem;font:600 1rem var(--font-mono)}
+.cost{margin-top:1.25rem;font:400 clamp(1.4rem,4.5vw,2rem)/1.15 var(--font-display);text-transform:uppercase;text-wrap:balance}
+.cost span{background:var(--accent);color:var(--accent-ink);padding:0 .2em;-webkit-box-decoration-break:clone;box-decoration-break:clone}
+.verdict{margin-top:1.5rem;background:var(--ink);color:var(--bg);padding:1.5rem 1.25rem}
+.verdict h3{margin:0 0 .6rem;font-size:clamp(1.7rem,5vw,2.5rem)}
+.verdict p+p{margin-top:.7rem}
+.verdict .big{font-size:1.15rem}
+
+/* Puntaje final y regalos */
+.score{margin-top:1rem;background:var(--board);color:var(--board-ink);border:2px solid var(--ink);padding:1.4rem 1.25rem 1.6rem}
+.score .lbl{color:var(--board-ink);opacity:.8}
+.score-n{display:flex;align-items:baseline;gap:.6rem;margin-top:.3rem}
+.score-n span{font:400 clamp(5rem,26vw,9.5rem)/.95 var(--font-display);font-variant-numeric:tabular-nums;color:var(--board-accent)}
+.score-n small{font:500 1.2rem var(--font-mono);opacity:.75}
+.scorebar{position:relative;height:18px;background:rgba(255,255,255,.16);margin:1rem 0 1.9rem}
+.scorebar .fill{position:absolute;inset:0 auto 0 0;width:0;background:var(--board-accent)}
+.scorebar .tk{position:absolute;top:-6px;bottom:-6px;width:3px;background:var(--board-ink)}
+.scorebar .tk b{position:absolute;top:100%;left:50%;transform:translateX(-50%);margin-top:.3rem;font:600 .8rem var(--font-mono)}
+.stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:.75rem;margin-top:.5rem}
+.stat .n{font:400 clamp(2rem,9vw,3.4rem)/1 var(--font-display);font-variant-numeric:tabular-nums}
+.stat .t{margin-top:.2rem;font:500 .7rem/1.3 var(--font-mono);letter-spacing:.08em;text-transform:uppercase;opacity:.85}
+.stat.ok .n{color:var(--board-good)}
+.stat.bad .n{color:var(--board-bad)}
+.stat.miss .n{color:var(--board-mute)}
+.stack{display:flex;height:12px;margin-top:1rem;background:rgba(255,255,255,.12)}
+.stack i{display:block;height:100%}
+.gifts{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:.75rem;margin-top:1rem;align-items:end}
+.gift{display:flex;flex-direction:column;align-items:center;text-align:center;gap:.5rem;padding:1rem .6rem 1.1rem;background:var(--surface);border:2px solid var(--ink);transition:opacity .4s,transform .4s,background .4s}
+.gico{display:grid;place-items:end center;min-width:4.5rem;height:4.5rem}
+.gift .gn{font:400 1.25rem/1.1 var(--font-display);text-transform:uppercase}
+.gift .gd{margin-top:.2rem;font:500 .72rem/1.3 var(--font-mono);letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.gift .gt{margin-top:.2rem;font-size:.9rem;color:var(--muted)}
+.g-box{fill:var(--surface);stroke:var(--ink);stroke-width:3;stroke-linejoin:round}
+.g-rib{fill:var(--accent);stroke:var(--ink);stroke-width:3;stroke-linejoin:round}
+.gifts[data-done="true"] .gift{opacity:.4}
+.gifts[data-done="true"] .gift[data-won="true"]{opacity:1;background:var(--accent);color:var(--accent-ink);transform:translateY(-6px)}
+.gift[data-won="true"] .gd,.gift[data-won="true"] .gt{color:var(--accent-ink)}
+@media (max-width:560px){
+  .gifts{grid-template-columns:1fr}
+  .gift{flex-direction:row;text-align:left;justify-content:flex-start;gap:1rem}
+  .gifts[data-done="true"] .gift[data-won="true"]{transform:none}
+}
+.banner{margin-top:1rem;background:var(--accent);color:var(--accent-ink);padding:1rem 1.25rem;font:400 clamp(1.7rem,6vw,2.9rem)/1.05 var(--font-display);text-transform:uppercase;text-wrap:balance;animation:pop .5s ease-out}
+@keyframes pop{from{transform:scale(.92);opacity:0}to{transform:scale(1);opacity:1}}
+.fhint{margin-top:.4rem;font-size:.9rem;color:var(--muted)}
+
+@media (prefers-reduced-motion: reduce){
+  *{animation:none!important;transition:none!important}
+}
+</style>
+
+<div class="wrap">
+
+<header class="hero">
+  <p class="eyebrow">Maqueta de ciudad · Desafío logístico</p>
+  <h1>Desafío de <span>despacho</span></h1>
+  <p class="lede">Hay un pedido que despachar y dos calles para llegar al cliente. Dos pruebas, en orden.</p>
+  <ol class="tracker" id="tracker">
+    <li data-step="1" data-state="curso"><span class="n">1</span><span><span class="t">El cálculo</span><span class="s">En curso</span></span></li>
+    <li data-step="2" data-state="pendiente"><span class="n">2</span><span><span class="t">La calle</span><span class="s">Pendiente</span></span></li>
+    <li data-step="3" data-state="pendiente"><span class="n">3</span><span><span class="t">El resultado</span><span class="s">Pendiente</span></span></li>
+  </ol>
+</header>
+
+<!-- PRUEBA 1 -->
+<section class="stage" id="p1" aria-labelledby="h-p1">
+  <div class="stage-head">
+    <div>
+      <span class="tag">Prueba 1</span>
+      <h2 id="h-p1">El cálculo</h2>
+    </div>
+    <div class="timer" id="reloj1" data-seconds="180" role="group" aria-label="Cronómetro de la prueba 1">
+      <output aria-live="off">03:00</output>
+      <button type="button" class="btn small primary" data-act="toggle">Iniciar</button>
+      <button type="button" class="btn small" data-act="reset">Reiniciar</button>
+    </div>
+  </div>
+
+  <div class="manifest">
+    <div class="manifest-h"><span>Orden de despacho <span id="od">OD-0417</span></span><span>Cantidades en unidades</span></div>
+    <div class="manifest-b">
+      <div class="fig"><div class="lbl">Productos pedidos</div><div class="val" id="v-pedidos">260</div><div class="unit">Lo que el cliente necesita</div></div>
+      <div class="fig"><div class="lbl">Productos en bodega</div><div class="val" id="v-bodega">195</div><div class="unit">Lo que realmente tenemos</div></div>
+    </div>
+  </div>
+
+  <h3>Su tarea</h3>
+  <ol class="todo">
+    <li>Calculen el Nivel de Servicio (en %) y el Faltante (en unidades).</li>
+    <li>Escriban ambos resultados y pulsen Comprobar. Pueden usar coma o punto.</li>
+  </ol>
+
+  <form id="f1" novalidate autocomplete="off">
+    <div class="answer">
+      <div class="field" id="fld-ns">
+        <label for="in-ns">Nivel de Servicio</label>
+        <div class="in"><input id="in-ns" type="text" inputmode="decimal" placeholder="0"><span class="suf">%</span></div>
+        <p class="fstat" id="st-ns" aria-live="polite"></p>
+      </div>
+      <div class="field" id="fld-fa">
+        <label for="in-fa">Faltante</label>
+        <div class="in"><input id="in-fa" type="text" inputmode="numeric" placeholder="0"><span class="suf">uds</span></div>
+        <p class="fstat" id="st-fa" aria-live="polite"></p>
+      </div>
+    </div>
+    <div class="actions">
+      <button type="submit" class="btn primary" id="comprobar">Comprobar</button>
+      <button type="button" class="btn" id="nuevo-pedido">Nuevo pedido</button>
+      <span class="counter">Intentos: <span id="intentos">0</span></span>
+    </div>
+  </form>
+  <p class="msg" id="msg1" role="status" hidden></p>
+  <div class="actions" id="ir2-box" hidden><button type="button" class="btn primary" id="ir2">Ir a la Prueba 2</button></div>
+
+</section>
+
+<!-- PRUEBA 2 -->
+<section class="stage" id="p2" aria-labelledby="h-p2" data-locked="true">
+  <div class="stage-head">
+    <div>
+      <span class="tag">Prueba 2</span>
+      <h2 id="h-p2">La calle</h2>
+    </div>
+    <div class="timer" id="reloj2" data-seconds="120" role="group" aria-label="Cronómetro de la prueba 2">
+      <output aria-live="off">02:00</output>
+      <button type="button" class="btn small primary" data-act="toggle">Iniciar</button>
+      <button type="button" class="btn small" data-act="reset">Reiniciar</button>
+    </div>
+  </div>
+
+  <div class="lock-note">
+    <span><strong>Prueba bloqueada.</strong> Resuelvan el cálculo de la Prueba 1 para avanzar.</span>
+    <button type="button" class="btn small" id="desbloquear">Desbloquear (presentador)</button>
+  </div>
+
+  <div class="stage-body" id="p2-body" inert>
+    <div class="client">
+      <span class="k">Mensaje del cliente</span>
+      <span class="q">Lo quiero lo más rápido posible. Sin importar qué.</span>
+      <span class="p">Plazo prometido: <span class="plazo">10</span> minutos.</span>
+    </div>
+
+    <h3>Su tarea</h3>
+    <ol class="todo">
+      <li>Observen la maqueta y comparen las dos calles.</li>
+      <li>Decidan en equipo cuál eligen y por qué.</li>
+      <li>Pulsen Despachar para colocar la pieza. Una vez puesta, no hay vuelta atrás.</li>
+      <li>Su puntaje final de satisfacción del cliente define el regalo.</li>
+    </ol>
+
+    <div class="mapbox">
+      <svg id="mapa" viewBox="0 0 700 320" role="img" aria-label="Mapa de la maqueta. La bodega está a la izquierda, el cliente a la derecha y hay dos rutas: la Calle A por arriba y la Calle B por abajo.">
+        <rect class="bg" width="700" height="320"/>
+        <g>
+          <rect class="blk" x="16" y="16" width="104" height="68" rx="3"/>
+          <rect class="blk" x="140" y="16" width="150" height="68" rx="3"/>
+          <rect class="blk" x="310" y="16" width="150" height="68" rx="3"/>
+          <rect class="blk" x="480" y="16" width="204" height="68" rx="3"/>
+          <rect class="blk" x="16" y="108" width="100" height="30" rx="3"/>
+          <rect class="blk" x="150" y="114" width="314" height="34" rx="3"/>
+          <rect class="blk" x="500" y="108" width="184" height="32" rx="3"/>
+          <rect class="blk" x="16" y="186" width="92" height="44" rx="3"/>
+          <rect class="blk" x="16" y="244" width="150" height="60" rx="3"/>
+          <rect class="blk" x="186" y="250" width="150" height="54" rx="3"/>
+          <rect class="blk" x="356" y="236" width="110" height="68" rx="3"/>
+          <rect class="blk" x="486" y="214" width="198" height="90" rx="3"/>
+        </g>
+        <polygon class="cerro" points="206,302 262,258 318,302"/>
+        <g class="grp grp-A">
+          <path class="road" d="M84 160 H134 V100 H480 V160 H616"/>
+          <path id="ruta-A" class="route" d="M84 160 H134 V100 H480 V160 H616"/>
+          <g id="luces-A"></g>
+          <g id="insig-A"></g>
+        </g>
+        <g class="grp grp-B">
+          <path class="road" d="M84 160 H124 C164 228 250 236 320 218 S440 206 480 186 S560 160 616 160"/>
+          <path id="ruta-B" class="route" d="M84 160 H124 C164 228 250 236 320 218 S440 206 480 186 S560 160 616 160"/>
+          <g id="luces-B"></g>
+          <g id="insig-B"></g>
+        </g>
+        <rect class="endbox" x="14" y="144" width="70" height="32"/>
+        <text class="endtxt" x="49" y="161">BODEGA</text>
+        <rect class="endbox" x="616" y="144" width="70" height="32"/>
+        <text class="endtxt" x="651" y="161">CLIENTE</text>
+        <g id="camion" visibility="hidden" transform="translate(84 160)">
+          <polygon class="truck-body" points="-16,-8 4,-8 4,8 -16,8"/>
+          <polygon class="truck-body" points="4,-8 11,-8 17,0 17,8 4,8"/>
+          <circle class="truck-wheel" cx="-9" cy="9" r="3.2"/>
+          <circle class="truck-wheel" cx="10" cy="9" r="3.2"/>
+        </g>
+      </svg>
+      <div class="legend">
+        <span><i class="lg-line" style="background:var(--a)"></i>Calle A</span>
+        <span><i class="lg-line" style="background:var(--b)"></i>Calle B</span>
+        <span><i class="lg-lamp"></i>Semáforo</span>
+        <span><b class="lg-x">×</b>Bache</span>
+      </div>
+    </div>
+
+    <div class="choices" id="choices" role="radiogroup" aria-label="Elijan una calle"></div>
+    <p class="hint">La marca “Ventaja” señala el mejor valor de cada fila.</p>
+
+    <h3>¿Por qué esa calle?</h3>
+    <div class="reasons" id="reasons" role="radiogroup" aria-label="Motivo de la decisión"></div>
+
+    <div class="field-gap">
+      <label for="argumento">Su argumento, con sus palabras. Suma <span class="bono">5</span> puntos.</label>
+      <textarea id="argumento" placeholder="Ejemplo: elegimos esta calle porque…" maxlength="300"></textarea>
+      <p class="fhint">Escriban al menos <span class="bono-min">20</span> caracteres para sumar el bono.</p>
+    </div>
+
+    <div class="actions">
+      <button type="button" class="btn primary" id="despachar" disabled>Despachar</button>
+      <span class="status" id="estado" role="status" aria-live="polite">Falta elegir la calle.</span>
+    </div>
+
+    <div class="result" id="resultado" hidden></div>
+  </div>
+</section>
+
+</div>
+
+<script>
+(function(){
+"use strict";
+
+/* ============================================================
+   CONFIGURACIÓN DEL DESAFÍO
+   Cambien aquí los números de las calles, el plazo y los tiempos.
+   ============================================================ */
+const CFG = {
+  plazoMin: 10,           // minutos prometidos al cliente
+  kpi: { nombre: "Índice de Satisfacción del Cliente", sigla: "ISC" },
+  penalAtrasoPorMin: 3,   // puntos que se restan por cada minuto de atraso
+  bonoArgumento: 5,       // puntos extra por escribir un argumento
+  argMinCaracteres: 20,   // largo mínimo del argumento para ganar el bono
+  nsPosibles: [0.85, 0.9],// Nivel de Servicio de los pedidos nuevos (0.85 = 85 %)
+  regalos: [              // de menor a mayor puntaje
+    { nombre: "Regalo pequeño", desde: 0,  detalle: "Buen intento" },
+    { nombre: "Regalo mediano", desde: 65, detalle: "Buen despacho" },
+    { nombre: "Regalo grande",  desde: 80, detalle: "Despacho de excelencia" }
+  ],
+  calles: {
+    A: { nombre: "Avenida Central", min: 11, km: 4.2, semaforos: 5, baches: 0, danoPct: 5 },
+    B: { nombre: "Calle del Cerro", min: 9,  km: 4.0, semaforos: 3, baches: 4, danoPct: 25 }
+  }
+};
+const MOTIVOS = {
+  tiempo: "Es la más rápida y el cliente pidió rapidez.",
+  carga: "Prefiero que los productos lleguen sanos.",
+  semaforos: "Tiene menos semáforos.",
+  equilibrio: "Es el mejor equilibrio entre tiempo y daño."
+};
+
+const $ = (s, r) => (r || document).querySelector(s);
+const nf = (n, d) => n.toLocaleString("es-CL", { maximumFractionDigits: d === undefined ? 1 : d });
+const reduce = () => window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+const S = { pedidos: 280, bodega: 238, od: 417, solved: false, intentos: 0, calle: null, motivo: null, despachado: false };
+const ESTADOS = { pendiente: "Pendiente", curso: "En curso", lista: "Completa" };
+
+function paso(n, e){
+  const li = $('#tracker li[data-step="' + n + '"]');
+  li.dataset.state = e;
+  $(".s", li).textContent = ESTADOS[e];
+}
+
+/* ---------- Relojes ---------- */
+function beep(){
+  try{
+    const C = window.AudioContext || window.webkitAudioContext;
+    const x = new C(), o = x.createOscillator(), g = x.createGain();
+    o.connect(g); g.connect(x.destination);
+    o.frequency.value = 660; g.gain.value = 0.08;
+    o.start(); o.stop(x.currentTime + 0.5);
+  }catch(e){}
+}
+function crearReloj(root){
+  const out = $("output", root), tgl = $('[data-act="toggle"]', root), rst = $('[data-act="reset"]', root);
+  const total = Number(root.dataset.seconds);
+  let left = total, id = null;
+  const draw = () => {
+    out.textContent = String(Math.floor(left / 60)).padStart(2, "0") + ":" + String(left % 60).padStart(2, "0");
+    root.dataset.end = left === 0 ? "true" : "false";
+  };
+  const pause = () => { clearInterval(id); id = null; tgl.textContent = left === total ? "Iniciar" : "Continuar"; };
+  const tick = () => {
+    left = Math.max(0, left - 1); draw();
+    if(left === 0){ pause(); tgl.textContent = "¡Tiempo!"; tgl.disabled = true; beep(); }
+  };
+  tgl.addEventListener("click", () => {
+    if(id){ pause(); return; }
+    if(left === 0) return;
+    id = setInterval(tick, 1000); tgl.textContent = "Pausar";
+  });
+  rst.addEventListener("click", () => { pause(); left = total; tgl.disabled = false; draw(); tgl.textContent = "Iniciar"; });
+  draw();
+  return { pause: pause, reset: () => rst.click() };
+}
+const reloj1 = crearReloj($("#reloj1"));
+const reloj2 = crearReloj($("#reloj2"));
+
+/* ---------- Prueba 1 ---------- */
+const nsCorrecto = () => S.bodega / S.pedidos * 100;
+const faCorrecto = () => S.pedidos - S.bodega;
+function num(v){
+  const t = String(v).trim().replace(/\s/g, "").replace("%", "").replace(",", ".");
+  return t === "" ? NaN : Number(t);
+}
+function mostrar(el, tipo, txt){ el.hidden = false; el.dataset.t = tipo; el.textContent = txt; }
+function marcar(sel, ok){ $(sel).dataset.ok = ok ? "true" : "false"; }
+function estadoCampo(sel, ok){ const el = $(sel); el.dataset.t = ok ? "ok" : "err"; el.textContent = ok ? "Correcto" : "Incorrecto"; }
+
+function pintarOrden(){
+  $("#v-pedidos").textContent = nf(S.pedidos, 0);
+  $("#v-bodega").textContent = nf(S.bodega, 0);
+  $("#od").textContent = "OD-" + String(S.od).padStart(4, "0");
+}
+
+function desbloquear(){
+  const st = $("#p2");
+  st.dataset.locked = "false";
+  $("#p2-body").inert = false;
+  paso(1, "lista"); paso(2, "curso");
+}
+
+function resolver(ns, fa){
+  S.solved = true;
+  reloj1.pause();
+  $("#in-ns").disabled = true; $("#in-fa").disabled = true; $("#comprobar").disabled = true;
+  mostrar($("#msg1"), "ok", "¡Correcto! Los dos datos están bien. Lo lograron en " + S.intentos + (S.intentos === 1 ? " intento." : " intentos."));
+  $("#ir2-box").hidden = false;
+  desbloquear();
+}
+
+$("#f1").addEventListener("submit", function(e){
+  e.preventDefault();
+  if(S.solved) return;
+  const ns = num($("#in-ns").value), fa = num($("#in-fa").value), msg = $("#msg1");
+  if(isNaN(ns) || isNaN(fa)){ mostrar(msg, "warn", "Escriban los dos resultados antes de comprobar."); return; }
+  S.intentos++; $("#intentos").textContent = S.intentos;
+  const nsOk = Math.abs(ns - nsCorrecto()) <= 0.1, faOk = fa === faCorrecto();
+  marcar("#fld-ns", nsOk); marcar("#fld-fa", faOk);
+  estadoCampo("#st-ns", nsOk); estadoCampo("#st-fa", faOk);
+  if(nsOk && faOk){ resolver(ns, fa); return; }
+  mostrar(msg, "err", nsOk || faOk ? "Uno de los datos está bien. Corrijan el otro e intenten de nuevo." : "Todavía no. Revisen sus cálculos e intenten de nuevo.");
+});
+
+function nuevoPedido(){
+  const peds = [160, 180, 240, 260, 280, 300], rats = CFG.nsPosibles;
+  let p, b;
+  do{
+    p = peds[Math.floor(Math.random() * peds.length)];
+    b = Math.round(p * rats[Math.floor(Math.random() * rats.length)]);
+  }while(p === S.pedidos && b === S.bodega);
+  S.pedidos = p; S.bodega = b; S.od = 100 + Math.floor(Math.random() * 900);
+}
+function limpiarPrueba1(){
+  $("#in-ns").value = ""; $("#in-fa").value = "";
+  $("#in-ns").disabled = false; $("#in-fa").disabled = false; $("#comprobar").disabled = false;
+  $("#fld-ns").removeAttribute("data-ok"); $("#fld-fa").removeAttribute("data-ok");
+  $("#st-ns").textContent = ""; $("#st-fa").textContent = "";
+  $("#msg1").hidden = true; $("#ir2-box").hidden = true;
+  S.solved = false; S.intentos = 0; $("#intentos").textContent = "0";
+}
+$("#nuevo-pedido").addEventListener("click", function(){
+  if(S.despachado) return;
+  nuevoPedido(); limpiarPrueba1(); pintarOrden(); reloj1.reset();
+  if($("#p2").dataset.locked !== "true"){
+    $("#p2").dataset.locked = "true"; $("#p2-body").inert = true; paso(1, "curso"); paso(2, "pendiente");
+  }
+});
+$("#ir2").addEventListener("click", function(){
+  $("#p2").scrollIntoView({ behavior: reduce() ? "auto" : "smooth", block: "start" });
+});
+$("#desbloquear").addEventListener("click", function(){
+  desbloquear();
+  $("#p2").scrollIntoView({ behavior: reduce() ? "auto" : "smooth", block: "start" });
+});
+
+/* ---------- Prueba 2: calles y mapa ---------- */
+function calc(k){
+  const c = CFG.calles[k];
+  const danados = Math.round(S.bodega * c.danoPct / 100);
+  const sanos = S.bodega - danados;
+  return { c: c, danados: danados, sanos: sanos, cumpl: sanos / S.pedidos * 100, dif: c.min - CFG.plazoMin };
+}
+const otra = k => k === "A" ? "B" : "A";
+const tiempoTxt = d => d > 0 ? d + " min tarde" : d < 0 ? (-d) + " min antes" : "justo a tiempo";
+
+function pintarCalles(){
+  const filas = [
+    ["Tiempo estimado", "min", v => nf(v, 0) + " min"],
+    ["Distancia", "km", v => nf(v, 1) + " km"],
+    ["Semáforos", "semaforos", v => String(v)],
+    ["Tramos con baches", "baches", v => String(v)],
+    ["Daño esperado", "danoPct", v => nf(v, 0) + " %"]
+  ];
+  let html = "";
+  ["A", "B"].forEach(function(k){
+    const c = CFG.calles[k], o = CFG.calles[otra(k)];
+    let rows = "";
+    filas.forEach(function(f){
+      const gana = c[f[1]] < o[f[1]];
+      rows += '<span class="row"><span class="dt">' + f[0] + '</span><span class="dd">' + f[2](c[f[1]]) +
+        (gana ? '<span class="pro">Ventaja</span>' : "") + "</span></span>";
+    });
+    html += '<div class="choice" data-k="' + k + '">' +
+      '<input type="radio" name="calle" id="calle-' + k + '" value="' + k + '" aria-label="Calle ' + k + ", " + c.nombre + '">' +
+      '<label class="card" for="calle-' + k + '">' +
+      '<span class="card-h"><span class="badge">' + k + '</span><span><span class="cn">' + c.nombre + '</span><span class="sub">Calle ' + k + '</span></span><span class="pick">Elegida</span></span>' +
+      '<span class="rows">' + rows + "</span></label></div>";
+  });
+  $("#choices").innerHTML = html;
+
+  let r = "";
+  Object.keys(MOTIVOS).forEach(function(m){
+    r += '<label class="reason"><input type="radio" name="motivo" value="' + m + '"><span>' + MOTIVOS[m] + "</span></label>";
+  });
+  $("#reasons").innerHTML = r;
+}
+
+function dibujarMapa(){
+  const NS = "http://www.w3.org/2000/svg";
+  const frac = { A: 0.26, B: 0.13 };
+  ["A", "B"].forEach(function(k){
+    const c = CFG.calles[k], path = $("#ruta-" + k), len = path.getTotalLength();
+    let luces = "", insig = "";
+    for(let i = 1; i <= c.semaforos; i++){
+      const p = path.getPointAtLength(len * i / (c.semaforos + 1));
+      luces += '<circle class="lamp-o" cx="' + p.x + '" cy="' + p.y + '" r="7"/><circle class="lamp-i" cx="' + p.x + '" cy="' + p.y + '" r="3.5"/>';
+    }
+    for(let i = 0; i < c.baches; i++){
+      const f = 0.3 + 0.4 * (c.baches === 1 ? 0.5 : i / (c.baches - 1));
+      const p = path.getPointAtLength(len * f);
+      luces += '<path class="pothole" transform="translate(' + p.x + " " + p.y + ')" d="M-5 -5L5 5M-5 5L5 -5"/>';
+    }
+    const b = path.getPointAtLength(len * frac[k]);
+    insig = '<g transform="translate(' + b.x + " " + b.y + ')"><circle class="bdg-' + k + '" r="15"/><text class="bdg-t bdg-t-' + k + '">' + k + "</text></g>";
+    $("#luces-" + k).innerHTML = luces;
+    $("#insig-" + k).innerHTML = insig;
+  });
+  void NS;
+}
+
+function actualizarDespacho(){
+  const btn = $("#despachar"), est = $("#estado");
+  if(S.despachado) return;
+  btn.disabled = !(S.calle && S.motivo);
+  est.textContent = !S.calle ? "Falta elegir la calle." : !S.motivo ? "Falta indicar por qué." : "Listos. Una vez que despachen, no hay vuelta atrás.";
+}
+$("#choices").addEventListener("change", function(e){
+  if(e.target.name !== "calle") return;
+  S.calle = e.target.value; $("#mapa").dataset.sel = S.calle; actualizarDespacho();
+});
+$("#reasons").addEventListener("change", function(e){
+  if(e.target.name !== "motivo") return;
+  S.motivo = e.target.value; actualizarDespacho();
+});
+
+/* ---------- Despacho y animación ---------- */
+function ping(pt){
+  const c = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+  c.setAttribute("cx", pt.x); c.setAttribute("cy", pt.y); c.setAttribute("r", 14); c.setAttribute("class", "ping");
+  $("#mapa").appendChild(c);
+  setTimeout(function(){ c.remove(); }, 900);
+}
+function animarCamion(k, fin){
+  const path = $("#ruta-" + k), truck = $("#camion"), len = path.getTotalLength();
+  const put = function(s){
+    const a = path.getPointAtLength(s), b = path.getPointAtLength(Math.min(len, s + 3)), c = path.getPointAtLength(Math.max(0, s - 3));
+    const ang = Math.atan2(b.y - c.y, b.x - c.x) * 180 / Math.PI;
+    truck.setAttribute("transform", "translate(" + a.x + " " + a.y + ") rotate(" + ang + ")");
+  };
+  truck.setAttribute("visibility", "visible");
+  if(reduce()){ put(len); setTimeout(fin, 200); return; }
+  const dur = 4200, t0 = performance.now(), risky = CFG.calles[k].baches > 0;
+  let hit = false;
+  requestAnimationFrame(function f(t){
+    const p = Math.min(1, Math.max(0, (t - t0) / dur));
+    const e = p < 0.5 ? 4 * p * p * p : 1 - Math.pow(-2 * p + 2, 3) / 2;
+    put(len * e);
+    if(!hit && risky && e >= 0.5){ hit = true; ping(path.getPointAtLength(len * 0.5)); }
+    if(p < 1) requestAnimationFrame(f); else setTimeout(fin, 500);
+  });
+}
+
+function argBono(){
+  return $("#argumento").value.trim().length >= CFG.argMinCaracteres ? CFG.bonoArgumento : 0;
+}
+function score(k){
+  const r = calc(k);
+  const base = r.sanos / S.pedidos * 100;
+  const atraso = Math.max(0, r.dif), pen = atraso * CFG.penalAtrasoPorMin, bono = argBono();
+  return { r: r, base: base, atraso: atraso, pen: pen, bono: bono, total: Math.max(0, Math.min(100, base - pen + bono)) };
+}
+function nivel(t){
+  let i = 0;
+  CFG.regalos.forEach(function(g, j){ if(t >= g.desde) i = j; });
+  return i;
+}
+function giftSvg(i){
+  const w = [44, 56, 72][i] || 56;
+  return '<svg width="' + w + '" height="' + w + '" viewBox="0 0 64 64" aria-hidden="true">' +
+    '<rect class="g-box" x="8" y="26" width="48" height="30" rx="2"/>' +
+    '<rect class="g-box" x="5" y="18" width="54" height="10" rx="2"/>' +
+    '<rect class="g-rib" x="28" y="18" width="8" height="38"/>' +
+    '<path class="g-rib" d="M32 18 C22 4 10 10 20 18 Z M32 18 C42 4 54 10 44 18 Z"/></svg>';
+}
+
+function lane(k){
+  const x = score(k), r = x.r, mine = k === S.calle;
+  const escala = Math.max(CFG.plazoMin, CFG.calles.A.min, CFG.calles.B.min) * 1.25;
+  const wT = Math.min(100, r.c.min / escala * 100), tick = CFG.plazoMin / escala * 100;
+  return '<div class="lane" data-k="' + k + '"><div class="lane-h"><span class="badge">' + k + "</span><strong>" + r.c.nombre + "</strong>" +
+    (mine ? '<span class="mine">Tu elección</span>' : "") + "</div>" +
+    '<div class="meter"><span>Tiempo</span><div class="track"><i style="width:' + wT + '%"></i><b class="tick" style="left:' + tick + '%"></b></div><span class="m-val">' + r.c.min + " min</span></div>" +
+    '<div class="meter"><span>Sanos</span><div class="track"><i style="width:' + (r.sanos / S.pedidos * 100) + '%"></i></div><span class="m-val">' + r.sanos + "</span></div>" +
+    '<p class="cumpl">' + CFG.kpi.sigla + ": " + nf(x.total) + " pts · " + CFG.regalos[nivel(x.total)].nombre + "</p></div>";
+}
+
+function revelarRegalo(i){
+  const g = $("#gifts");
+  g.dataset.done = "true";
+  $('.gift[data-i="' + i + '"]', g).dataset.won = "true";
+  const b = $("#banner");
+  b.textContent = "¡Ganaron el " + CFG.regalos[i].nombre.toLowerCase() + "!";
+  b.hidden = false;
+}
+function animarScore(total, lvl){
+  const num = $("#score-num"), fill = $("#score-fill");
+  const fin = function(){ num.textContent = nf(total); fill.style.width = total + "%"; revelarRegalo(lvl); };
+  if(reduce()){ fin(); return; }
+  const dur = 2400, t0 = performance.now();
+  requestAnimationFrame(function f(t){
+    const p = Math.min(1, Math.max(0, (t - t0) / dur)), v = total * (1 - Math.pow(1 - p, 3));
+    num.textContent = nf(v); fill.style.width = v + "%";
+    if(p < 1) requestAnimationFrame(f); else fin();
+  });
+}
+
+function renderResultado(){
+  const k = S.calle, sc = score(k), r = sc.r, res = $("#resultado");
+  const faltan = S.pedidos - S.bodega, lvl = nivel(sc.total), pct = n => n / S.pedidos * 100;
+  let ticks = "", gifts = "";
+  CFG.regalos.forEach(function(g, i){
+    if(g.desde > 0) ticks += '<span class="tk" style="left:' + g.desde + '%"><b>' + g.desde + "</b></span>";
+    gifts += '<div class="gift" data-i="' + i + '"><div class="gico">' + giftSvg(i) + '</div><div class="gtxt"><div class="gn">' + g.nombre +
+      '</div><div class="gd">Desde ' + g.desde + ' pts</div><div class="gt">' + g.detalle + "</div></div></div>";
+  });
+  const html =
+    '<h3 style="margin-top:1.5rem">Resultado del despacho</h3>' +
+    '<div class="score" id="score"><div class="lbl">' + CFG.kpi.nombre + " (" + CFG.kpi.sigla + ")</div>" +
+    '<div class="score-n"><span id="score-num">0</span><small>/ 100</small></div>' +
+    '<div class="scorebar"><div class="fill" id="score-fill"></div>' + ticks + "</div>" +
+    '<div class="stats">' +
+      '<div class="stat ok"><div class="n">' + r.sanos + '</div><div class="t">Llegaron sanos</div></div>' +
+      '<div class="stat bad"><div class="n">' + r.danados + '</div><div class="t">Se dañaron en el camino</div></div>' +
+      '<div class="stat miss"><div class="n">' + faltan + '</div><div class="t">No había en bodega</div></div>' +
+    "</div>" +
+    '<div class="stack" aria-hidden="true"><i style="width:' + pct(r.sanos) + '%;background:var(--board-good)"></i><i style="width:' + pct(r.danados) + '%;background:var(--board-bad)"></i><i style="width:' + pct(faltan) + '%;background:var(--board-mute)"></i></div>' +
+    "</div>" +
+    '<div class="gifts" id="gifts">' + gifts + "</div>" +
+    '<p class="banner" id="banner" hidden></p>' +
+    '<h3>Cómo se armó el puntaje</h3>' +
+    '<div class="boleta"><table><caption class="sr">Detalle del puntaje</caption><tbody>' +
+    "<tr><th>Ruta elegida</th><td>Calle " + k + " · " + r.c.nombre + "</td></tr>" +
+    "<tr><th>Productos pedidos</th><td>" + nf(S.pedidos, 0) + "</td></tr>" +
+    "<tr><th>No había en bodega</th><td>−" + nf(faltan, 0) + "</td></tr>" +
+    "<tr><th>Dañados en el camino</th><td>−" + r.danados + "</td></tr>" +
+    '<tr class="total"><th>Llegaron sanos</th><td>' + r.sanos + "</td></tr>" +
+    "<tr><th>Puntaje base</th><td>" + nf(sc.base) + " pts</td></tr>" +
+    "<tr><th>Tiempo de viaje</th><td>" + r.c.min + " min · " + tiempoTxt(r.dif) + "</td></tr>" +
+    "<tr><th>Descuento por atraso</th><td>" + (sc.pen > 0 ? "−" + nf(sc.pen) : "0") + " pts</td></tr>" +
+    "<tr><th>Bono por argumentar</th><td>" + (sc.bono > 0 ? "+" + nf(sc.bono) : "0") + " pts</td></tr>" +
+    '<tr class="total"><th>' + CFG.kpi.sigla + ' final</th><td>' + nf(sc.total) + " pts</td></tr>" +
+    "</tbody></table></div>" +
+    '<div class="arg"><div class="lbl">Argumento del equipo</div><p class="quote" id="arg-quote"></p></div>' +
+    '<h3>Lo que entregó cada calle</h3><div class="lanes">' + lane("A") + lane("B") + "</div>" +
+    '<p class="note">La marca negra es el plazo del cliente (' + CFG.plazoMin + " min).</p>" +
+    '<div class="actions"><button type="button" class="btn primary" id="otra-vez">Jugar de nuevo</button></div>';
+  res.innerHTML = html;
+  const arg = $("#argumento").value.trim();
+  $("#arg-quote").textContent = "“" + MOTIVOS[S.motivo] + "”" + (arg ? " " + arg : "");
+  res.hidden = false;
+  $("#otra-vez").addEventListener("click", reiniciar);
+  paso(2, "lista"); paso(3, "lista");
+  $("#score").scrollIntoView({ behavior: reduce() ? "auto" : "smooth", block: "start" });
+  animarScore(sc.total, lvl);
+}
+
+$("#despachar").addEventListener("click", function(){
+  if(!S.calle || !S.motivo || S.despachado) return;
+  S.despachado = true;
+  reloj2.pause();
+  document.querySelectorAll("#p2 input, #p2 textarea").forEach(function(el){ el.disabled = true; });
+  $("#despachar").disabled = true;
+  $("#estado").textContent = "En camino por la Calle " + S.calle + "…";
+  paso(3, "curso");
+  animarCamion(S.calle, function(){
+    $("#estado").textContent = "El camión llegó al cliente.";
+    renderResultado();
+  });
+});
+
+function reiniciar(){
+  nuevoPedido(); limpiarPrueba1(); pintarOrden();
+  reloj1.reset(); reloj2.reset();
+  S.calle = null; S.motivo = null; S.despachado = false;
+  document.querySelectorAll("#p2 input, #p2 textarea").forEach(function(el){ el.disabled = false; });
+  document.querySelectorAll("#p2 input[type=radio]").forEach(function(el){ el.checked = false; });
+  $("#argumento").value = "";
+  $("#mapa").removeAttribute("data-sel");
+  $("#camion").setAttribute("visibility", "hidden");
+  $("#resultado").hidden = true; $("#resultado").innerHTML = "";
+  $("#p2").dataset.locked = "true"; $("#p2-body").inert = true;
+  paso(1, "curso"); paso(2, "pendiente"); paso(3, "pendiente");
+  actualizarDespacho();
+  window.scrollTo({ top: 0, behavior: reduce() ? "auto" : "smooth" });
+}
+
+/* ---------- Arranque ---------- */
+document.querySelectorAll(".plazo").forEach(function(el){ el.textContent = CFG.plazoMin; });
+document.querySelectorAll(".bono").forEach(function(el){ el.textContent = CFG.bonoArgumento; });
+document.querySelectorAll(".bono-min").forEach(function(el){ el.textContent = CFG.argMinCaracteres; });
+pintarOrden();
+pintarCalles();
+dibujarMapa();
+actualizarDespacho();
+})();
+</script>
+
+</body>
+</html>
